@@ -4,7 +4,7 @@ Version complète et avancée du générateur de QR code avec interface moderne 
 
 ## 🚀 Démo en Direct
 
-[Ouvrir complete_qr_generatorV3.html](./v3/complete_qr_generatorV3.html) dans votre navigateur
+[Ouvrir complete_qr_generatorV3.html](.V3/complete_qr_generatorV3.html) dans votre navigateur
 
 ## 🎯 Fonctionnalités Complètes
 
