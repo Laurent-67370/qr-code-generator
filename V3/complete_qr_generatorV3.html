@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de QR Code</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --primary-dark: #45a049;
+            --secondary: #2196F3;
+            --secondary-dark: #1976D2;
+            --accent: #ff9800;
+            --danger: #f44336;
+            --text: #333;
+            --text-light: #666;
+            --bg-light: #f8f9fa;
+            --bg-gray: #e9ecef;
+            --border: #e1e1e1;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 15px rgba(0,0,0,0.15);
+            --shadow-lg: 0 8px 25px rgba(0,0,0,0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 15px;
+            --radius-xl: 20px;
+            --transition: all 0.3s ease;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p { opacity: 0.9; font-size: 1.1em; }
+        .main-content { padding: 40px; }
+
+        /* Sections */
+        .section {
+            margin-bottom: 30px;
+            background: var(--bg-light);
+            border-radius: var(--radius-lg);
+            border-left: 5px solid var(--primary);
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 20px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            transition: var(--transition);
+        }
+
+        .section-header:hover, .section-header.active { background: var(--bg-light); }
+        .section-header.active { background: #e8f5e8; }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-toggle {
+            font-size: 1.2em;
+            color: var(--primary);
+            transition: transform 0.3s ease;
+        }
+
+        .section-toggle.expanded { transform: rotate(180deg); }
+
+        .section-content {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .section-content.expanded {
+            max-height: 2000px;
+            padding: 20px;
+        }
+
+        /* Form Elements */
+        .form-group { margin-bottom: 25px; }
+
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 1.1em;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 3px solid var(--border);
+            border-radius: var(--radius-lg);
+            font-size: 16px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        /* Size Control */
+        .size-control-enhanced {
+            background: var(--bg-light);
+            padding: 25px;
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--border);
+        }
+
+        .size-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .size-info-item {
+            text-align: center;
+            padding: 15px 10px;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--border);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .size-info-item:hover, .size-info-item.active {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+            background: #e8f5e8;
+        }
+
+        .size-icon { font-size: 24px; margin-bottom: 8px; }
+        .size-label { font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 4px; }
+        .size-desc { font-size: 12px; color: var(--text-light); }
+
+        .size-slider-container { position: relative; margin: 20px 0; }
+
+        .size-slider-enhanced {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 12px;
+            background: linear-gradient(to right, 
+                var(--primary) 0%, var(--primary) 15%, 
+                var(--secondary) 15%, var(--secondary) 40%, 
+                var(--accent) 40%, var(--accent) 70%, 
+                var(--danger) 70%, var(--danger) 100%);
+            border-radius: 6px;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .size-slider-enhanced::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 4px solid var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            transition: var(--transition);
+        }
+
+        .size-slider-enhanced::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            border-color: var(--primary-dark);
+        }
+
+        .size-markers {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding: 0 14px;
+        }
+
+        .size-markers span { font-size: 11px; color: var(--text-light); font-weight: 500; }
+
+        .size-display-enhanced {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 18px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            margin: 20px auto 0;
+            width: fit-content;
+        }
+
+        /* Grids */
+        .color-grid, .design-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .color-grid { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); }
+        .design-grid { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+
+        .color-option, .design-option {
+            text-align: center;
+            cursor: pointer;
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+            border: 3px solid transparent;
+            background: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .color-option { padding: 15px 10px; }
+        .design-option { padding: 12px 8px; border: 2px solid var(--border); }
+
+        .color-option:hover, .design-option:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .color-option.selected, .design-option.selected {
+            border-color: var(--primary);
+            background: #e8f5e8;
+            transform: translateY(-3px);
+        }
+
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            margin: 0 auto 8px;
+            border: 2px solid var(--border);
+        }
+
+        .design-preview {
+            width: 35px;
+            height: 35px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            background: var(--bg-light);
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+
+        .design-label { font-size: 12px; font-weight: 500; color: #555; }
+
+        /* Buttons */
+        .generate-btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            min-width: 200px;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+        }
+
+        .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .download-btn {
+            background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 8px;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        /* Result Section */
+        .result-section {
+            margin-top: 40px;
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, var(--bg-light), var(--bg-gray));
+            border-radius: var(--radius-xl);
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .qr-container {
+            margin: 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            max-width: 90%;
+            width: fit-content;
+        }
+
+        #qr-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100px;
+        }
+
+        #qr-display img { display: block; margin: 0 auto; }
+
+        .info-panel {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: var(--radius-lg);
+            margin-top: 20px;
+            border-left: 4px solid var(--secondary);
+            text-align: left;
+        }
+
+        .info-panel h4 { color: var(--secondary-dark); margin-bottom: 10px; }
+        .info-panel p { color: #555; font-size: 14px; margin: 5px 0; }
+
+        .help-text {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-top: 8px;
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--primary);
+        }
+
+        /* Share Options */
+        .share-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .share-btn {
+            background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            transition: var(--transition);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .share-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .share-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Stats Toggle */
+        .stats-toggle {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        .switch-label {
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        /* Preview Modes */
+        .preview-modes {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .preview-btn {
+            background: var(--bg-light);
+            color: var(--text);
+            border: 2px solid var(--border);
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .preview-btn:hover, .preview-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Download Section Enhanced */
+        .download-section {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        /* Responsive Updates */
+        @media (max-width: 480px) {
+            .share-options { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .share-btn { padding: 10px 15px; font-size: 13px; }
+            .preview-modes { gap: 5px; }
+            .preview-btn { padding: 6px 12px; font-size: 12px; }
+            .download-section { gap: 5px; }
+            .download-btn { padding: 10px 15px; font-size: 14px; margin: 4px; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .main-content { padding: 15px; }
+            .header { padding: 20px 15px; }
+            .header h1 { font-size: 1.8em; }
+            .section-header, .section-content.expanded { padding: 15px; }
+            .size-info-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .color-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .design-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .generate-btn { width: 100%; padding: 12px 15px; font-size: 16px; }
+        }
+
+        @media (min-width: 481px) and (max-width: 768px) {
+            .size-info-grid { grid-template-columns: repeat(2, 1fr); }
+            .color-grid { grid-template-columns: repeat(4, 1fr); }
+            .design-grid { grid-template-columns: repeat(3, 1fr); }
+            .generate-btn { width: 100%; }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .container { max-width: 750px; }
+            .color-grid { grid-template-columns: repeat(6, 1fr); }
+            .design-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        @media (min-width: 1441px) {
+            .container { max-width: 1200px; }
+            .header h1 { font-size: 3em; }
+            .color-preview { width: 60px; height: 60px; }
+            .design-preview { width: 45px; height: 45px; }
+            .design-grid { grid-template-columns: repeat(6, 1fr); }
+            .generate-btn { font-size: 20px; min-width: 300px; }
+        }
+
+        /* Accessibility & Animations */
+        .color-option:focus, .design-option:focus, .section-header:focus {
+            outline: 3px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .loading { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; border-radius: 0; }
+            .generate-btn, .download-btn { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Générateur de QR Code</h1>
+            <p>Créez des QR codes personnalisés en quelques clics</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Section principale -->
+            <div class="section">
+                <div class="section-header active">
+                    <div class="section-title"><span>🔗</span><span>Créer votre QR Code</span></div>
+                </div>
+                <div class="section-content expanded">
+                    <div class="form-group">
+                        <label for="url-input" class="form-label">Entrez votre lien :</label>
+                        <input type="url" id="url-input" class="url-input" placeholder="https://exemple.com" required>
+                        <div class="help-text">💡 Entrez l'adresse web complète que vous voulez partager</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="size-input" class="form-label">Choisissez la taille :</label>
+                        <div class="size-control-enhanced">
+                            <div class="size-info-grid">
+                                <div class="size-info-item" data-range="200-400">
+                                    <div class="size-icon">📱</div>
+                                    <div class="size-label">Web & Mobile</div>
+                                    <div class="size-desc">200-400px</div>
+                                </div>
+                                <div class="size-info-item" data-range="500-800">
+                                    <div class="size-icon">🖨️</div>
+                                    <div class="size-label">Impression</div>
+                                    <div class="size-desc">500-800px</div>
+                                </div>
+                                <div class="size-info-item" data-range="900-1400">
+                                    <div class="size-icon">📄</div>
+                                    <div class="size-label">Grande qualité</div>
+                                    <div class="size-desc">900-1400px</div>
+                                </div>
+                                <div class="size-info-item" data-range="1500-2000">
+                                    <div class="size-icon">🎯</div>
+                                    <div class="size-label">Ultra HD</div>
+                                    <div class="size-desc">1500-2000px</div>
+                                </div>
+                            </div>
+                            <div class="size-slider-container">
+                                <input type="range" id="size-input" class="size-slider-enhanced" min="200" max="2000" value="500" step="100">
+                                <div class="size-markers">
+                                    <span>200px</span><span>500px</span><span>1000px</span><span>1500px</span><span>2000px</span>
+                                </div>
+                            </div>
+                            <div class="size-display-enhanced" id="size-display">500px</div>
+                        </div>
+                        <div class="help-text">📏 Plus c'est grand, plus c'est net à l'impression • Les tailles 1500px+ utilisent l'API ultra-finesse</div>
+                    </div>
+
+                    <button class="generate-btn" onclick="generateQR()" id="generate-button">✨ Générer mon QR Code</button>
+                </div>
+            </div>
+
+            <!-- Section couleurs -->
+            <div class="section">
+                <div class="section-header active" onclick="toggleSection('colors')">
+                    <div class="section-title"><span>🎨</span><span>Couleurs</span></div>
+                    <span class="section-toggle expanded" id="colors-toggle">▲</span>
+                </div>
+                <div class="section-content expanded" id="colors-content">
+                    <div class="color-grid">
+                        <div class="color-option selected" data-fg="000000" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #000 50%, #fff 50%);"></div>
+                            <div><strong>Classique</strong></div>
+                        </div>
+                        <div class="color-option" data-fg="1a237e" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #1a237e 50%, #fff 50%);"></div>
+                            <div><strong>Bleu Pro</strong></div>
+                        </div>
+                        <div class="color-option" data-fg="b71c1c" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #b71c1c 50%, #fff 50%);"></div>
+                            <div><strong>Rouge</strong></div>
+                        </div>
+                        <div class="color-option" data-fg="1b5e20" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #1b5e20 50%, #fff 50%);"></div>
+                            <div><strong>Vert</strong></div>
+                        </div>
+                        <div class="color-option" data-fg="e65100" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #e65100 50%, #fff 50%);"></div>
+                            <div><strong>Orange</strong></div>
+                        </div>
+                        <div class="color-option" data-fg="4a148c" data-bg="ffffff" tabindex="0">
+                            <div class="color-preview" style="background: linear-gradient(45deg, #4a148c 50%, #fff 50%);"></div>
+                            <div><strong>Violet</strong></div>
+                        </div>
+                    </div>
+                    <div class="help-text">🌈 Toutes les couleurs sont optimisées pour une lecture facile</div>
+                </div>
+            </div>
+
+            <!-- Section logos -->
+            <div class="section">
+                <div class="section-header active" onclick="toggleSection('logos')">
+                    <div class="section-title"><span>🎯</span><span>Logo au centre</span></div>
+                    <span class="section-toggle expanded" id="logos-toggle">▲</span>
+                </div>
+                <div class="section-content expanded" id="logos-content">
+                    <div class="form-group">
+                        <label class="form-label">🐾 Animaux :</label>
+                        <div class="design-grid" id="animal-logos">
+                            <div class="design-option selected" data-logo="none" tabindex="0">
+                                <div class="design-preview" style="font-size: 18px;">∅</div>
+                                <div class="design-label">Aucun</div>
+                            </div>
+                            <div class="design-option" data-logo="cat" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🐱</div>
+                                <div class="design-label">Chat</div>
+                            </div>
+                            <div class="design-option" data-logo="dog" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🐶</div>
+                                <div class="design-label">Chien</div>
+                            </div>
+                            <div class="design-option" data-logo="panda" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🐼</div>
+                                <div class="design-label">Panda</div>
+                            </div>
+                            <div class="design-option" data-logo="lion" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🦁</div>
+                                <div class="design-label">Lion</div>
+                            </div>
+                            <div class="design-option" data-logo="unicorn" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🦄</div>
+                                <div class="design-label">Licorne</div>
+                            </div>
+                            <div class="design-option" data-logo="fox" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🦊</div>
+                                <div class="design-label">Renard</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">💻 Tech & Communication :</label>
+                        <div class="design-grid" id="tech-logos">
+                            <div class="design-option" data-logo="robot" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🤖</div>
+                                <div class="design-label">Robot</div>
+                            </div>
+                            <div class="design-option" data-logo="phone" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">📱</div>
+                                <div class="design-label">Téléphone</div>
+                            </div>
+                            <div class="design-option" data-logo="computer" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">💻</div>
+                                <div class="design-label">Ordinateur</div>
+                            </div>
+                            <div class="design-option" data-logo="email" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">📧</div>
+                                <div class="design-label">Email</div>
+                            </div>
+                            <div class="design-option" data-logo="wifi" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">📶</div>
+                                <div class="design-label">WiFi</div>
+                            </div>
+                            <div class="design-option" data-logo="camera" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">📷</div>
+                                <div class="design-label">Appareil Photo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">💼 Business :</label>
+                        <div class="design-grid" id="business-logos">
+                            <div class="design-option" data-logo="briefcase" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">💼</div>
+                                <div class="design-label">Mallette</div>
+                            </div>
+                            <div class="design-option" data-logo="chart" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">📊</div>
+                                <div class="design-label">Graphique</div>
+                            </div>
+                            <div class="design-option" data-logo="money" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">💰</div>
+                                <div class="design-label">Argent</div>
+                            </div>
+                            <div class="design-option" data-logo="bank" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🏦</div>
+                                <div class="design-label">Banque</div>
+                            </div>
+                            <div class="design-option" data-logo="handshake" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🤝</div>
+                                <div class="design-label">Poignée de main</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">⭐ Symboles :</label>
+                        <div class="design-grid" id="symbol-logos">
+                            <div class="design-option" data-logo="star" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">⭐</div>
+                                <div class="design-label">Étoile</div>
+                            </div>
+                            <div class="design-option" data-logo="heart" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">❤️</div>
+                                <div class="design-label">Cœur</div>
+                            </div>
+                            <div class="design-option" data-logo="fire" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🔥</div>
+                                <div class="design-label">Feu</div>
+                            </div>
+                            <div class="design-option" data-logo="diamond" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">💎</div>
+                                <div class="design-label">Diamant</div>
+                            </div>
+                            <div class="design-option" data-logo="trophy" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🏆</div>
+                                <div class="design-label">Trophée</div>
+                            </div>
+                            <div class="design-option" data-logo="thumbsup" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">👍</div>
+                                <div class="design-label">Pouce levé</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🚀 Transport :</label>
+                        <div class="design-grid" id="transport-logos">
+                            <div class="design-option" data-logo="rocket" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🚀</div>
+                                <div class="design-label">Fusée</div>
+                            </div>
+                            <div class="design-option" data-logo="car" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🚗</div>
+                                <div class="design-label">Voiture</div>
+                            </div>
+                            <div class="design-option" data-logo="plane" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">✈️</div>
+                                <div class="design-label">Avion</div>
+                            </div>
+                            <div class="design-option" data-logo="bike" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🚴</div>
+                                <div class="design-label">Vélo</div>
+                            </div>
+                            <div class="design-option" data-logo="train" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🚆</div>
+                                <div class="design-label">Train</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🍕 Nourriture :</label>
+                        <div class="design-grid" id="food-logos">
+                            <div class="design-option" data-logo="pizza" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🍕</div>
+                                <div class="design-label">Pizza</div>
+                            </div>
+                            <div class="design-option" data-logo="coffee" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">☕</div>
+                                <div class="design-label">Café</div>
+                            </div>
+                            <div class="design-option" data-logo="burger" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🍔</div>
+                                <div class="design-label">Burger</div>
+                            </div>
+                            <div class="design-option" data-logo="cake" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🎂</div>
+                                <div class="design-label">Gâteau</div>
+                            </div>
+                            <div class="design-option" data-logo="wine" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🍷</div>
+                                <div class="design-label">Vin</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🎵 Loisirs :</label>
+                        <div class="design-grid" id="leisure-logos">
+                            <div class="design-option" data-logo="music" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🎵</div>
+                                <div class="design-label">Musique</div>
+                            </div>
+                            <div class="design-option" data-logo="game" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🎮</div>
+                                <div class="design-label">Jeux vidéo</div>
+                            </div>
+                            <div class="design-option" data-logo="soccer" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">⚽</div>
+                                <div class="design-label">Football</div>
+                            </div>
+                            <div class="design-option" data-logo="basketball" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🏀</div>
+                                <div class="design-label">Basketball</div>
+                            </div>
+                            <div class="design-option" data-logo="guitar" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🎸</div>
+                                <div class="design-label">Guitare</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🌍 Nature :</label>
+                        <div class="design-grid" id="nature-logos">
+                            <div class="design-option" data-logo="tree" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🌳</div>
+                                <div class="design-label">Arbre</div>
+                            </div>
+                            <div class="design-option" data-logo="flower" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🌼</div>
+                                <div class="design-label">Fleur</div>
+                            </div>
+                            <div class="design-option" data-logo="sun" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">☀️</div>
+                                <div class="design-label">Soleil</div>
+                            </div>
+                            <div class="design-option" data-logo="earth" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🌍</div>
+                                <div class="design-label">Terre</div>
+                            </div>
+                            <div class="design-option" data-logo="rainbow" tabindex="0">
+                                <div class="design-preview" style="font-size: 20px;">🌈</div>
+                                <div class="design-label">Arc-en-ciel</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-text">🎯 Choisissez parmi 40+ logos organisés par catégories • Tous optimisés pour une parfaite intégration</div>
+                </div>
+            </div>
+
+            <!-- Section designs avancés -->
+            <div class="section">
+                <div class="section-header active" onclick="toggleSection('designs')">
+                    <div class="section-title"><span>🎭</span><span>Designs avancés</span></div>
+                    <span class="section-toggle expanded" id="designs-toggle">▲</span>
+                </div>
+                <div class="section-content expanded" id="designs-content">
+                    <div class="form-group">
+                        <label class="form-label">Forme du corps :</label>
+                        <div class="design-grid" id="body-shapes">
+                            <div class="design-option selected" data-body="square" tabindex="0">
+                                <div class="design-preview">■■■<br>■■■<br>■■■</div>
+                                <div class="design-label">Carré</div>
+                            </div>
+                            <div class="design-option" data-body="circle" tabindex="0">
+                                <div class="design-preview">●●●<br>●●●<br>●●●</div>
+                                <div class="design-label">Rond</div>
+                            </div>
+                            <div class="design-option" data-body="pointed" tabindex="0">
+                                <div class="design-preview">◆◆◆<br>◆◆◆<br>◆◆◆</div>
+                                <div class="design-label">Pointu</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Cadres d'angle :</label>
+                        <div class="design-grid" id="eye-frames">
+                            <div class="design-option selected" data-eye="frame0" tabindex="0">
+                                <div class="design-preview" style="border: 2px solid #000;">⬛</div>
+                                <div class="design-label">Standard</div>
+                            </div>
+                            <div class="design-option" data-eye="frame1" tabindex="0">
+                                <div class="design-preview" style="border: 2px solid #000; border-radius: 4px;">⬛</div>
+                                <div class="design-label">Arrondi</div>
+                            </div>
+                            <div class="design-option" data-eye="frame2" tabindex="0">
+                                <div class="design-preview" style="border: 2px solid #000; border-radius: 50%;">⬛</div>
+                                <div class="design-label">Cercle</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Centres d'angle :</label>
+                        <div class="design-grid" id="eye-balls">
+                            <div class="design-option selected" data-eyeball="ball0" tabindex="0">
+                                <div class="design-preview">⬛</div>
+                                <div class="design-label">Carré</div>
+                            </div>
+                            <div class="design-option" data-eyeball="ball1" tabindex="0">
+                                <div class="design-preview">●</div>
+                                <div class="design-label">Rond</div>
+                            </div>
+                            <div class="design-option" data-eyeball="ball5" tabindex="0">
+                                <div class="design-preview">◆</div>
+                                <div class="design-label">Losange</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-text">✨ Les designs avancés et logos utilisent une technologie spéciale tout en restant parfaitement lisibles</div>
+                </div>
+            </div>
+
+            <!-- Section formats avancés -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('formats')">
+                    <div class="section-title"><span>📄</span><span>Formats & Export</span></div>
+                    <span class="section-toggle" id="formats-toggle">▼</span>
+                </div>
+                <div class="section-content" id="formats-content">
+                    <div class="form-group">
+                        <label class="form-label">Format d'export :</label>
+                        <div class="design-grid" id="format-options">
+                            <div class="design-option selected" data-format="png" tabindex="0">
+                                <div class="design-preview" style="font-size: 18px;">🖼️</div>
+                                <div class="design-label">PNG</div>
+                            </div>
+                            <div class="design-option" data-format="jpg" tabindex="0">
+                                <div class="design-preview" style="font-size: 18px;">📷</div>
+                                <div class="design-label">JPEG</div>
+                            </div>
+                            <div class="design-option" data-format="svg" tabindex="0">
+                                <div class="design-preview" style="font-size: 18px;">🎨</div>
+                                <div class="design-label">SVG</div>
+                            </div>
+                            <div class="design-option" data-format="pdf" tabindex="0">
+                                <div class="design-preview" style="font-size: 18px;">📋</div>
+                                <div class="design-label">PDF</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Templates prédéfinis :</label>
+                        <div class="design-grid" id="template-options">
+                            <div class="design-option selected" data-template="none" tabindex="0">
+                                <div class="design-preview" style="font-size: 16px;">📱</div>
+                                <div class="design-label">Simple</div>
+                            </div>
+                            <div class="design-option" data-template="business" tabindex="0">
+                                <div class="design-preview" style="font-size: 16px;">💼</div>
+                                <div class="design-label">Business</div>
+                            </div>
+                            <div class="design-option" data-template="social" tabindex="0">
+                                <div class="design-preview" style="font-size: 16px;">📲</div>
+                                <div class="design-label">Réseaux</div>
+                            </div>
+                            <div class="design-option" data-template="event" tabindex="0">
+                                <div class="design-preview" style="font-size: 16px;">🎉</div>
+                                <div class="design-label">Événement</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-text">📋 Choisissez le format et le template adaptés à votre usage
+                        <br><span id="mobile-format-info" style="display: none; color: #ff9800; font-weight: bold;">
+                            📱 Mobile détecté : PNG recommandé pour un téléchargement optimal
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section partage social -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('share')">
+                    <div class="section-title"><span>🌐</span><span>Partage & Analytics</span></div>
+                    <span class="section-toggle" id="share-toggle">▼</span>
+                </div>
+                <div class="section-content" id="share-content">
+                    <div class="form-group">
+                        <label class="form-label">Options de partage :</label>
+                        <div class="share-options">
+                            <button class="share-btn" onclick="shareToSocial('twitter')" id="share-twitter">
+                                <span>🐦</span> Twitter
+                            </button>
+                            <button class="share-btn" onclick="shareToSocial('facebook')" id="share-facebook">
+                                <span>📘</span> Facebook
+                            </button>
+                            <button class="share-btn" onclick="shareToSocial('linkedin')" id="share-linkedin">
+                                <span>💼</span> LinkedIn
+                            </button>
+                            <button class="share-btn" onclick="shareToSocial('whatsapp')" id="share-whatsapp">
+                                <span>💬</span> WhatsApp
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="mobile-options" style="display: none;">
+                        <label class="form-label">📱 Options mobile :</label>
+                        <div class="stats-toggle">
+                            <label class="switch">
+                                <input type="checkbox" id="force-classic-download">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="switch-label">Mode téléchargement classique (peut ne pas fonctionner)</span>
+                        </div>
+                        <div class="help-text">⚠️ Le mode classique peut échouer sur certains navigateurs mobiles</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Suivi des statistiques :</label>
+                        <div class="stats-toggle">
+                            <label class="switch">
+                                <input type="checkbox" id="enable-stats">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="switch-label">Activer le suivi des scans</span>
+                        </div>
+                    </div>
+
+                    <div class="help-text">📊 Le suivi vous permet de voir combien de fois votre QR code a été scanné</div>
+                </div>
+            </div>
+
+            <!-- Section résultat -->
+            <div class="result-section" id="result-section" style="display: none;">
+                <h3>📱 Votre QR Code est prêt !</h3>
+                <div class="qr-container">
+                    <div id="qr-display"></div>
+                </div>
+                
+                <div class="download-section">
+                    <button class="download-btn" onclick="downloadQR()" id="download-btn">📱 Télécharger PNG</button>
+                    <button class="download-btn" onclick="copyQRLink()">🔗 Copier le lien</button>
+                    <button class="download-btn" onclick="printQR()">🖨️ Imprimer</button>
+                    <button class="download-btn" onclick="shareQR()">📤 Partager</button>
+                </div>
+
+                <div class="preview-modes">
+                    <button class="preview-btn active" onclick="setPreviewMode('normal')" id="preview-normal">
+                        📱 Aperçu normal
+                    </button>
+                    <button class="preview-btn" onclick="setPreviewMode('print')" id="preview-print">
+                        🖨️ Aperçu impression
+                    </button>
+                    <button class="preview-btn" onclick="setPreviewMode('business')" id="preview-business">
+                        💼 Carte de visite
+                    </button>
+                </div>
+
+                <div class="info-panel" id="qr-info">
+                    <h4>📊 Informations techniques</h4>
+                    <p id="size-info">Résolution : En cours...</p>
+                    <p id="api-info">API utilisée : En cours...</p>
+                    <p id="design-info">Design : En cours...</p>
+                    <p id="format-info">Format : PNG</p>
+                    <p id="stats-info">Suivi : Désactivé</p>
+                </div>
+
+                <div class="help-text">✅ <strong>Test :</strong> Scannez avec l'appareil photo de votre téléphone pour vérifier !</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script>
+        // Configuration globale optimisée
+        const CONFIG = {
+            apis: {
+                qrserver: 'https://api.qrserver.com/v1/create-qr-code/',
+                quickchart: 'https://quickchart.io/qr',
+                qrmonkey: 'https://api.qrcode-monkey.com/qr/custom'
+            },
+            sizeRanges: {
+                '200-400': 300, '500-800': 600, '900-1400': 1200, '1500-2000': 1800
+            },
+            logoUrls: {
+                // Animaux
+                cat: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f431.png',
+                dog: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f436.png',
+                panda: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f43c.png',
+                lion: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f981.png',
+                unicorn: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f984.png',
+                fox: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f98a.png',
+                // Tech & Communication
+                robot: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f916.png',
+                phone: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4f1.png',
+                computer: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4bb.png',
+                email: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4e7.png',
+                wifi: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4f6.png',
+                camera: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4f7.png',
+                // Business & Professionnel
+                briefcase: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4bc.png',
+                chart: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4ca.png',
+                money: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f4b0.png',
+                bank: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3e6.png',
+                handshake: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f91d.png',
+                // Symboles & Émotions
+                star: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/2b50.png',
+                heart: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/2764-fe0f.png',
+                fire: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f525.png',
+                diamond: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f48e.png',
+                trophy: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3c6.png',
+                thumbsup: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f44d.png',
+                // Transport & Voyage
+                rocket: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f680.png',
+                car: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f697.png',
+                plane: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/2708-fe0f.png',
+                bike: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f6b4.png',
+                train: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f686.png',
+                // Nourriture & Boisson
+                pizza: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f355.png',
+                coffee: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/2615.png',
+                burger: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f354.png',
+                cake: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f382.png',
+                wine: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f377.png',
+                // Loisirs & Sport
+                music: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3b5.png',
+                game: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3ae.png',
+                soccer: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/26bd.png',
+                basketball: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3c0.png',
+                guitar: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f3b8.png',
+                // Nature & Environnement
+                tree: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f333.png',
+                flower: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f33c.png',
+                sun: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/2600-fe0f.png',
+                earth: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f30d.png',
+                rainbow: 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@14.0.0/img/apple/64/1f308.png'
+            },
+            logoNames: {
+                // Animaux
+                cat: 'Chat', dog: 'Chien', panda: 'Panda', lion: 'Lion', unicorn: 'Licorne', fox: 'Renard',
+                // Tech
+                robot: 'Robot', phone: 'Téléphone', computer: 'Ordinateur', email: 'Email', wifi: 'WiFi', camera: 'Appareil Photo',
+                // Business
+                briefcase: 'Mallette', chart: 'Graphique', money: 'Argent', bank: 'Banque', handshake: 'Poignée de main',
+                // Symboles
+                star: 'Étoile', heart: 'Cœur', fire: 'Feu', diamond: 'Diamant', trophy: 'Trophée', thumbsup: 'Pouce levé',
+                // Transport
+                rocket: 'Fusée', car: 'Voiture', plane: 'Avion', bike: 'Vélo', train: 'Train',
+                // Nourriture
+                pizza: 'Pizza', coffee: 'Café', burger: 'Burger', cake: 'Gâteau', wine: 'Vin',
+                // Loisirs
+                music: 'Musique', game: 'Jeux vidéo', soccer: 'Football', basketball: 'Basketball', guitar: 'Guitare',
+                // Nature
+                tree: 'Arbre', flower: 'Fleur', sun: 'Soleil', earth: 'Terre', rainbow: 'Arc-en-ciel'
+            }
+        };
+
+        // Détection mobile et plateforme (avant utilisation)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        // État global étendu
+        let currentQRUrl = null;
+        const qrGenerator = { 
+            size: 500, fgColor: '000000', bgColor: 'ffffff', 
+            bodyShape: 'square', eyeFrame: 'frame0', eyeBall: 'ball0', logo: 'none',
+            format: 'png', template: 'none', enableStats: false, previewMode: 'normal',
+            forceClassicDownload: false
+        };
+
+        // Utilitaires
+        const $ = id => document.getElementById(id);
+        const $$ = selector => document.querySelectorAll(selector);
+        const isValidURL = str => { try { new URL(str); return true; } catch { return false; } };
+
+        // Gestion des sections
+        function toggleSection(sectionId) {
+            const content = $(sectionId + '-content');
+            const toggle = $(sectionId + '-toggle');
+            const header = document.querySelector(`[onclick="toggleSection('${sectionId}')"]`);
+            const isExpanded = content.classList.contains('expanded');
+            
+            content.classList.toggle('expanded', !isExpanded);
+            toggle.classList.toggle('expanded', !isExpanded);
+            header.classList.toggle('active', !isExpanded);
+            toggle.textContent = isExpanded ? '▼' : '▲';
+        }
+
+        // Gestion de la taille
+        function updateSizeIndicator(size) {
+            $$('.size-info-item').forEach(item => item.classList.remove('active'));
+            const ranges = { 200: '200-400', 500: '500-800', 900: '900-1400', 1500: '1500-2000' };
+            const range = Object.keys(ranges).reverse().find(min => size >= min);
+            if (range) document.querySelector(`[data-range="${ranges[range]}"]`)?.classList.add('active');
+        }
+
+        // Configuration des événements
+        function setupEventHandlers() {
+            // Taille
+            $('size-input').addEventListener('input', function() {
+                const size = parseInt(this.value);
+                $('size-display').textContent = `${size}px`;
+                qrGenerator.size = size;
+                updateSizeIndicator(size);
+                if (currentQRUrl) generateQR();
+            });
+
+            // Catégories de taille
+            $$('.size-info-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const targetSize = CONFIG.sizeRanges[this.dataset.range];
+                    if (targetSize) {
+                        $('size-input').value = targetSize;
+                        $('size-input').dispatchEvent(new Event('input'));
+                    }
+                });
+            });
+
+            // Couleurs
+            $$('.color-option').forEach(option => {
+                ['click', 'keydown'].forEach(event => {
+                    option.addEventListener(event, function(e) {
+                        if (event === 'keydown' && !['Enter', ' '].includes(e.key)) return;
+                        e.preventDefault();
+                        $$('.color-option').forEach(opt => opt.classList.remove('selected'));
+                        this.classList.add('selected');
+                        qrGenerator.fgColor = this.dataset.fg;
+                        qrGenerator.bgColor = this.dataset.bg;
+                        if (currentQRUrl) generateQR();
+                    });
+                });
+            });
+
+            // Designs avancés
+            [
+                { selector: '#body-shapes .design-option', property: 'bodyShape', attr: 'body' },
+                { selector: '#eye-frames .design-option', property: 'eyeFrame', attr: 'eye' },
+                { selector: '#eye-balls .design-option', property: 'eyeBall', attr: 'eyeball' }
+            ].forEach(({selector, property, attr}) => {
+                $$(selector).forEach(option => {
+                    ['click', 'keydown'].forEach(event => {
+                        option.addEventListener(event, function(e) {
+                            if (event === 'keydown' && !['Enter', ' '].includes(e.key)) return;
+                            e.preventDefault();
+                            $$(selector).forEach(opt => opt.classList.remove('selected'));
+                            this.classList.add('selected');
+                            qrGenerator[property] = this.dataset[attr];
+                            if (currentQRUrl) generateQR();
+                        });
+                    });
+                });
+            });
+
+            // Logos - toutes catégories
+            [
+                '#animal-logos', '#tech-logos', '#business-logos', '#symbol-logos',
+                '#transport-logos', '#food-logos', '#leisure-logos', '#nature-logos'
+            ].forEach(category => {
+                $$(category + ' .design-option').forEach(option => {
+                    ['click', 'keydown'].forEach(event => {
+                        option.addEventListener(event, function(e) {
+                            if (event === 'keydown' && !['Enter', ' '].includes(e.key)) return;
+                            e.preventDefault();
+                            
+                            // Désélectionner tous les logos
+                            ['#animal-logos', '#tech-logos', '#business-logos', '#symbol-logos',
+                             '#transport-logos', '#food-logos', '#leisure-logos', '#nature-logos'].forEach(cat => {
+                                $$(cat + ' .design-option').forEach(opt => opt.classList.remove('selected'));
+                            });
+                            
+                            this.classList.add('selected');
+                            qrGenerator.logo = this.dataset.logo;
+                            if (currentQRUrl) generateQR();
+                        });
+                    });
+                });
+            });
+
+            // Formats et templates
+            [
+                { selector: '#format-options .design-option', property: 'format', attr: 'format' },
+                { selector: '#template-options .design-option', property: 'template', attr: 'template' }
+            ].forEach(({selector, property, attr}) => {
+                $$(selector).forEach(option => {
+                    ['click', 'keydown'].forEach(event => {
+                        option.addEventListener(event, function(e) {
+                            if (event === 'keydown' && !['Enter', ' '].includes(e.key)) return;
+                            e.preventDefault();
+                            $$(selector).forEach(opt => opt.classList.remove('selected'));
+                            this.classList.add('selected');
+                            qrGenerator[property] = this.dataset[attr];
+                            
+                            // Mettre à jour le bouton de téléchargement
+                            if (property === 'format') {
+                                updateDownloadButton();
+                            }
+                            
+                            if (currentQRUrl) generateQR();
+                        });
+                    });
+                });
+            });
+
+            // Toggle statistiques et mode téléchargement
+            $('enable-stats').addEventListener('change', function() {
+                qrGenerator.enableStats = this.checked;
+                updateInfoPanel();
+            });
+
+            // Toggle mode téléchargement classique (mobile uniquement)
+            const forceClassicToggle = $('force-classic-download');
+            if (forceClassicToggle) {
+                forceClassicToggle.addEventListener('change', function() {
+                    qrGenerator.forceClassicDownload = this.checked;
+                    updateDownloadButton();
+                });
+            }
+
+            // Génération au clavier
+            $('url-input').addEventListener('keypress', e => { if (e.key === 'Enter') generateQR(); });
+        }
+
+        // Génération du QR code
+        async function generateQR() {
+            const urlInput = $('url-input');
+            const generateBtn = $('generate-button');
+            const url = urlInput.value.trim();
+
+            if (!url) return alert('⚠️ Veuillez entrer un lien internet') || urlInput.focus();
+            if (!isValidURL(url)) return alert('⚠️ Veuillez entrer une URL valide') || urlInput.focus();
+
+            try {
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<span class="loading">⏳</span> Génération...';
+                
+                currentQRUrl = await generateQRCode(url);
+                await displayQRCode(currentQRUrl);
+                updateInfoPanel();
+                
+                const resultSection = $('result-section');
+                resultSection.style.display = 'block';
+                resultSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('❌ Erreur lors de la génération du QR code');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '✨ Générer mon QR Code';
+            }
+        }
+
+        // API de génération optimisée avec templates
+        async function generateQRCode(url) {
+            const { size, fgColor, bgColor, bodyShape, eyeFrame, eyeBall, logo, template } = qrGenerator;
+            
+            // Appliquer les templates
+            applyTemplate(template);
+            
+            const hasAdvancedDesign = bodyShape !== 'square' || eyeFrame !== 'frame0' || eyeBall !== 'ball0';
+            const hasLogo = logo !== 'none';
+
+            // Design avancé ou logo → API spécialisée
+            if (hasAdvancedDesign || hasLogo) {
+                return await generateAdvancedQR(url, size, fgColor, bgColor, bodyShape, eyeFrame, eyeBall, logo);
+            }
+
+            // Grande taille → QuickChart
+            if (size > 600) {
+                const params = {
+                    text: url, size, dark: `#${fgColor}`, light: `#${bgColor}`,
+                    format: 'png', ecLevel: size > 1500 ? 'H' : 'M', margin: Math.max(2, Math.floor(size / 200))
+                };
+                return `${CONFIG.apis.quickchart}?${new URLSearchParams(params)}`;
+            }
+
+            // Standard → QRServer
+            const params = {
+                size: `${size}x${size}`, data: url, color: fgColor, bgcolor: bgColor,
+                format: 'png', ecc: 'M', margin: 2
+            };
+            return `${CONFIG.apis.qrserver}?${new URLSearchParams(params)}`;
+        }
+
+        // Application des templates
+        function applyTemplate(template) {
+            if (template === 'none') return;
+            
+            const templates = {
+                business: {
+                    fgColor: '1a237e',
+                    bgColor: 'ffffff',
+                    bodyShape: 'square',
+                    eyeFrame: 'frame1',
+                    eyeBall: 'ball0',
+                    logo: 'briefcase',
+                    size: 800
+                },
+                social: {
+                    fgColor: 'e91e63',
+                    bgColor: 'ffffff',
+                    bodyShape: 'circle',
+                    eyeFrame: 'frame2',
+                    eyeBall: 'ball1',
+                    logo: 'heart',
+                    size: 600
+                },
+                event: {
+                    fgColor: 'ff5722',
+                    bgColor: 'ffffff',
+                    bodyShape: 'pointed',
+                    eyeFrame: 'frame2',
+                    eyeBall: 'ball5',
+                    logo: 'star',
+                    size: 700
+                }
+            };
+            
+            if (templates[template]) {
+                Object.assign(qrGenerator, templates[template]);
+                
+                // Mettre à jour l'interface
+                updateUIFromState();
+            }
+        }
+
+        // Mise à jour de l'interface depuis l'état
+        function updateUIFromState() {
+            // Taille
+            $('size-input').value = qrGenerator.size;
+            $('size-display').textContent = `${qrGenerator.size}px`;
+            updateSizeIndicator(qrGenerator.size);
+            
+            // Couleurs
+            $$('.color-option').forEach(opt => {
+                opt.classList.toggle('selected', 
+                    opt.dataset.fg === qrGenerator.fgColor && opt.dataset.bg === qrGenerator.bgColor);
+            });
+            
+            // Designs
+            $$('#body-shapes .design-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.body === qrGenerator.bodyShape);
+            });
+            $$('#eye-frames .design-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.eye === qrGenerator.eyeFrame);
+            });
+            $$('#eye-balls .design-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.eyeball === qrGenerator.eyeBall);
+            });
+            
+            // Formats
+            $$('#format-options .design-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.format === qrGenerator.format);
+            });
+            
+            // Logos
+            ['#animal-logos', '#tech-logos', '#business-logos', '#symbol-logos',
+             '#transport-logos', '#food-logos', '#leisure-logos', '#nature-logos'].forEach(category => {
+                $$(category + ' .design-option').forEach(opt => {
+                    opt.classList.toggle('selected', opt.dataset.logo === qrGenerator.logo);
+                });
+            });
+            
+            // Mettre à jour le bouton de téléchargement
+            updateDownloadButton();
+        }
+
+        // API avancée
+        async function generateAdvancedQR(url, size, fgColor, bgColor, bodyShape, eyeFrame, eyeBall, logo) {
+            try {
+                // QRCode Monkey
+                const qrMonkeyResult = await tryQRCodeMonkey(url, size, fgColor, bgColor, bodyShape, eyeFrame, eyeBall, logo);
+                if (qrMonkeyResult) return qrMonkeyResult;
+
+                // QuickChart avec logo
+                const quickChartResult = await tryQuickChart(url, size, fgColor, bgColor, logo);
+                if (quickChartResult) return quickChartResult;
+
+                // Génération locale
+                return await generateLocalQR(url, size, fgColor, bgColor, logo);
+
+            } catch (error) {
+                console.error('Erreur génération avancée:', error);
+                const fallbackParams = {
+                    size: `${size}x${size}`, data: url, color: fgColor, bgcolor: bgColor,
+                    format: 'png', ecc: 'H', margin: 2
+                };
+                return `${CONFIG.apis.qrserver}?${new URLSearchParams(fallbackParams)}`;
+            }
+        }
+
+        // QRCode Monkey
+        async function tryQRCodeMonkey(url, size, fgColor, bgColor, bodyShape, eyeFrame, eyeBall, logo) {
+            try {
+                const config = {
+                    body: bodyShape, eye: eyeFrame, eyeBall: eyeBall,
+                    bodyColor: `#${fgColor}`, bgColor: `#${bgColor}`,
+                    eye1Color: `#${fgColor}`, eye2Color: `#${fgColor}`, eye3Color: `#${fgColor}`,
+                    eyeBall1Color: `#${fgColor}`, eyeBall2Color: `#${fgColor}`, eyeBall3Color: `#${fgColor}`,
+                    erf1: [], erf2: [], erf3: [], brf1: [], brf2: [], brf3: []
+                };
+
+                if (logo !== 'none' && CONFIG.logoUrls[logo]) {
+                    const logoSize = Math.floor(size * 0.15);
+                    Object.assign(config, {
+                        logo: CONFIG.logoUrls[logo], logoMode: 'clean',
+                        logoWidth: logoSize, logoHeight: logoSize, logoSpace: 0
+                    });
+                }
+
+                const params = {
+                    data: url, config: JSON.stringify(config), size, download: false, file: 'png'
+                };
+                const qrMonkeyUrl = `${CONFIG.apis.qrmonkey}?${new URLSearchParams(params)}`;
+                return await testImageAvailability(qrMonkeyUrl) ? qrMonkeyUrl : null;
+            } catch { return null; }
+        }
+
+        // QuickChart
+        async function tryQuickChart(url, size, fgColor, bgColor, logo) {
+            try {
+                const params = {
+                    text: url, size, dark: `#${fgColor}`, light: `#${bgColor}`,
+                    format: 'png', ecLevel: 'H', margin: 2
+                };
+
+                if (logo !== 'none' && CONFIG.logoUrls[logo]) {
+                    params.centerImageUrl = CONFIG.logoUrls[logo];
+                    params.centerImageSizeRatio = 0.15;
+                }
+
+                const quickChartUrl = `${CONFIG.apis.quickchart}?${new URLSearchParams(params)}`;
+                return await testImageAvailability(quickChartUrl) ? quickChartUrl : null;
+            } catch { return null; }
+        }
+
+        // Génération locale
+        async function generateLocalQR(url, size, fgColor, bgColor, logo) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const options = {
+                    width: size, height: size,
+                    color: { dark: `#${fgColor}`, light: `#${bgColor}` },
+                    margin: 2, errorCorrectionLevel: logo !== 'none' ? 'H' : 'M'
+                };
+
+                QRCode.toCanvas(canvas, url, options, async (error) => {
+                    if (error) return reject(error);
+
+                    try {
+                        if (logo !== 'none' && CONFIG.logoUrls[logo]) {
+                            await addLogoToCanvas(canvas, CONFIG.logoUrls[logo], size);
+                        }
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (designError) {
+                        resolve(canvas.toDataURL('image/png'));
+                    }
+                });
+            });
+        }
+
+        // Ajouter logo au canvas
+        async function addLogoToCanvas(canvas, logoUrl, size) {
+            return new Promise((resolve) => {
+                const ctx = canvas.getContext('2d');
+                const logo = new Image();
+                logo.crossOrigin = 'anonymous';
+                
+                logo.onload = () => {
+                    const logoSize = Math.floor(size * 0.15);
+                    const x = (canvas.width - logoSize) / 2;
+                    const y = (canvas.height - logoSize) / 2;
+                    
+                    // Fond blanc rond
+                    ctx.beginPath();
+                    ctx.arc(x + logoSize/2, y + logoSize/2, logoSize/2 + 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'white';
+                    ctx.fill();
+                    
+                    // Logo
+                    ctx.drawImage(logo, x, y, logoSize, logoSize);
+                    resolve();
+                };
+                
+                logo.onerror = () => resolve();
+                logo.src = logoUrl;
+            });
+        }
+
+        // Test disponibilité image
+        async function testImageAvailability(imageUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = imageUrl;
+                setTimeout(() => resolve(false), 5000);
+            });
+        }
+
+        // Affichage QR code
+        async function displayQRCode(qrUrl) {
+            const qrDisplay = $('qr-display');
+            qrDisplay.innerHTML = '<div style="color: #666; padding: 20px;">🎨 Génération en cours...</div>';
+
+            return new Promise((resolve, reject) => {
+                const img = document.createElement('img');
+                img.src = qrUrl;
+                img.alt = 'QR Code généré';
+                
+                const isMobile = window.innerWidth <= 768;
+                const displaySize = Math.min(isMobile ? 300 : 350, qrGenerator.size);
+                
+                Object.assign(img.style, {
+                    width: `${displaySize}px`, height: `${displaySize}px`,
+                    borderRadius: '15px', imageRendering: 'crisp-edges',
+                    opacity: '0', transform: 'scale(0.8)'
+                });
+                
+                img.onload = () => {
+                    qrDisplay.innerHTML = '';
+                    qrDisplay.appendChild(img);
+                    setTimeout(() => {
+                        img.style.transition = 'all 0.5s ease';
+                        img.style.opacity = '1';
+                        img.style.transform = 'scale(1)';
+                    }, 100);
+                    resolve();
+                };
+
+                img.onerror = () => {
+                    qrDisplay.innerHTML = '<div style="color: #d32f2f; padding: 20px;">❌ Erreur de génération</div>';
+                    reject(new Error('Erreur de chargement'));
+                };
+            });
+        }
+
+        // Mise à jour du bouton de téléchargement avec gestion mobile
+        function updateDownloadButton() {
+            const downloadBtn = $('download-btn');
+            if (!downloadBtn) return;
+            
+            const format = qrGenerator.format;
+            const formatIcons = { png: '📱', jpg: '📷', svg: '🎨', pdf: '📋' };
+            const icon = formatIcons[format] || '📱';
+            
+            // Mode classique forcé sur mobile
+            if (isMobile && qrGenerator.forceClassicDownload) {
+                downloadBtn.textContent = `${icon} Télécharger ${format.toUpperCase()} (Classique)`;
+                downloadBtn.title = 'Mode classique activé - peut ne pas fonctionner sur tous les navigateurs mobiles';
+                return;
+            }
+            
+            // Sur Android avec formats autres que PNG
+            if (isAndroid && format !== 'png') {
+                downloadBtn.textContent = `${icon} Ouvrir ${format.toUpperCase()}`;
+                downloadBtn.title = 'Android : l\'image s\'ouvrira dans un nouvel onglet. Appuyez longuement pour enregistrer.';
+                return;
+            }
+            
+            // Mobile normal
+            if (isMobile) {
+                downloadBtn.textContent = `${icon} ${format.toUpperCase()} Mobile`;
+                downloadBtn.title = 'Optimisé pour mobile - appuyez longuement sur l\'image pour l\'enregistrer';
+                return;
+            }
+            
+            // Desktop
+            downloadBtn.textContent = `${icon} Télécharger ${format.toUpperCase()}`;
+            downloadBtn.title = '';
+        }
+
+        // Copier lien
+        function copyQRLink() {
+            if (!currentQRUrl) return alert('⚠️ Aucun QR code généré');
+            navigator.clipboard.writeText(currentQRUrl)
+                .then(() => alert('✅ Lien copié !'))
+                .catch(() => alert('❌ Impossible de copier le lien'));
+        }
+
+        // Mise à jour panneau info
+        function updateInfoPanel() {
+            const { size, bodyShape, eyeFrame, eyeBall, logo, format, enableStats } = qrGenerator;
+            const hasAdvancedDesign = bodyShape !== 'square' || eyeFrame !== 'frame0' || eyeBall !== 'ball0';
+            const hasLogo = logo !== 'none';
+            
+            let apiName = 'QRServer API (standard)';
+            let designDesc = 'Design standard';
+            
+            if (hasAdvancedDesign || hasLogo) {
+                if (currentQRUrl && currentQRUrl.includes('qrcode-monkey')) apiName = 'QRCode Monkey API (design complet)';
+                else if (currentQRUrl && currentQRUrl.includes('quickchart')) apiName = 'QuickChart API (design adapté)';
+                else if (currentQRUrl && currentQRUrl.startsWith('data:image')) apiName = 'Génération locale (design personnalisé)';
+                else apiName = 'QRServer API (fallback)';
+                
+                const parts = [];
+                if (hasAdvancedDesign) {
+                    const bodyNames = { square: 'Carré', circle: 'Rond', pointed: 'Pointu' };
+                    const eyeNames = { frame0: 'Standard', frame1: 'Arrondi', frame2: 'Cercle' };
+                    const ballNames = { ball0: 'Carré', ball1: 'Rond', ball5: 'Losange' };
+                    
+                    parts.push(`Corps: ${bodyNames[bodyShape]}`);
+                    parts.push(`Cadre: ${eyeNames[eyeFrame]}`);
+                    parts.push(`Centre: ${ballNames[eyeBall]}`);
+                }
+                if (hasLogo) parts.push(`Logo: ${CONFIG.logoNames[logo] || logo}`);
+                designDesc = parts.join(' • ');
+            } else if (size > 600) {
+                apiName = 'QuickChart API (haute résolution)';
+            }
+
+            $('size-info').textContent = `Résolution : ${size}x${size}px`;
+            $('api-info').textContent = `API utilisée : ${apiName}`;
+            $('design-info').textContent = `Design : ${designDesc}`;
+            $('format-info').textContent = `Format : ${format.toUpperCase()}`;
+            $('stats-info').textContent = `Suivi : ${enableStats ? 'Activé' : 'Désactivé'}`;
+            
+            // Mettre à jour le bouton de téléchargement
+            updateDownloadButton();
+        }
+
+        // Téléchargement
+        async function downloadQR() {
+            if (!currentQRUrl) return alert('⚠️ Aucun QR code à télécharger');
+
+            try {
+                const response = await fetch(currentQRUrl, { mode: 'cors', credentials: 'omit' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = Object.assign(document.createElement('a'), {
+                        href: url, download: `qrcode-${qrGenerator.size}px-${Date.now()}.png`
+                    });
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    return;
+                }
+            } catch (error) {
+                console.log('Téléchargement direct échoué, méthode alternative...');
+            }
+
+            // Fallback canvas
+            try {
+                const img = $('qr-display').querySelector('img');
+                if (!img) throw new Error('Aucune image trouvée');
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const newImg = new Image();
+                newImg.crossOrigin = 'anonymous';
+                
+                newImg.onload = () => {
+                    canvas.width = newImg.width || qrGenerator.size;
+                    canvas.height = newImg.height || qrGenerator.size;
+                    ctx.drawImage(newImg, 0, 0);
+                    canvas.toBlob(blob => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const link = Object.assign(document.createElement('a'), {
+                                href: url, download: `qrcode-${qrGenerator.size}px-${Date.now()}.png`
+                            });
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        }
+                    }, 'image/png');
+                };
+                
+                newImg.onerror = () => {
+                    if (confirm('📱 Téléchargement alternatif\n\nLe QR code va s\'ouvrir dans un nouvel onglet.\nFaites un clic droit → "Enregistrer l\'image sous..."\n\nContinuer ?')) {
+                        window.open(currentQRUrl, '_blank');
+                    }
+                };
+                
+                newImg.src = currentQRUrl;
+            } catch (error) {
+                alert('❌ Erreur lors du téléchargement');
+            }
+        }
+
+        // Partage sur les réseaux sociaux
+        function shareToSocial(platform) {
+            if (!currentQRUrl) return alert('⚠️ Générez d\'abord un QR code');
+            
+            const url = $('url-input').value.trim();
+            const message = `Découvrez ce QR Code : ${url}`;
+            
+            const shareUrls = {
+                twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(currentQRUrl)}`,
+                facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentQRUrl)}`,
+                linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(currentQRUrl)}`,
+                whatsapp: `https://wa.me/?text=${encodeURIComponent(message + ' ' + currentQRUrl)}`
+            };
+            
+            if (shareUrls[platform]) {
+                window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+            }
+        }
+
+        // Impression du QR code
+        function printQR() {
+            if (!currentQRUrl) return alert('⚠️ Aucun QR code à imprimer');
+            
+            const printWindow = window.open('', '_blank');
+            const url = $('url-input').value.trim();
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>QR Code - ${url}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
+                        img { max-width: 400px; border: 1px solid #ddd; border-radius: 10px; }
+                        h2 { color: #333; margin-bottom: 20px; }
+                        p { color: #666; margin-top: 20px; }
+                        @media print { body { margin: 20px; } }
+                    </style>
+                </head>
+                <body>
+                    <h2>QR Code</h2>
+                    <img src="${currentQRUrl}" alt="QR Code" />
+                    <p><strong>URL :</strong> ${url}</p>
+                    <p><strong>Taille :</strong> ${qrGenerator.size}x${qrGenerator.size}px</p>
+                    <p><strong>Généré le :</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 500);
+        }
+
+        // Partage natif
+        async function shareQR() {
+            if (!currentQRUrl) return alert('⚠️ Aucun QR code à partager');
+            
+            const url = $('url-input').value.trim();
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'QR Code',
+                        text: `Découvrez ce QR Code : ${url}`,
+                        url: currentQRUrl
+                    });
+                } catch (error) {
+                    console.log('Partage annulé');
+                }
+            } else {
+                // Fallback : copier le lien
+                copyQRLink();
+            }
+        }
+
+        // Modes de prévisualisation
+        function setPreviewMode(mode) {
+            qrGenerator.previewMode = mode;
+            
+            $$('.preview-btn').forEach(btn => btn.classList.remove('active'));
+            $(`preview-${mode}`).classList.add('active');
+            
+            const qrContainer = document.querySelector('.qr-container');
+            const qrDisplay = $('qr-display');
+            
+            // Reset styles
+            qrContainer.style.cssText = '';
+            qrDisplay.style.cssText = '';
+            
+            switch (mode) {
+                case 'print':
+                    qrContainer.style.cssText = `
+                        background: white; 
+                        border: 2px solid #000; 
+                        padding: 40px;
+                        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                    `;
+                    break;
+                    
+                case 'business':
+                    qrContainer.style.cssText = `
+                        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                        border: 1px solid #ddd;
+                        padding: 30px;
+                        max-width: 350px;
+                        position: relative;
+                    `;
+                    
+                    // Ajouter du texte simulé pour carte de visite
+                    if (!qrContainer.querySelector('.business-info')) {
+                        const businessInfo = document.createElement('div');
+                        businessInfo.className = 'business-info';
+                        businessInfo.style.cssText = `
+                            position: absolute;
+                            bottom: 10px;
+                            left: 20px;
+                            right: 20px;
+                            font-size: 12px;
+                            color: #555;
+                            text-align: center;
+                        `;
+                        businessInfo.innerHTML = '<strong>Votre Entreprise</strong><br>contact@exemple.com';
+                        qrContainer.appendChild(businessInfo);
+                    }
+                    break;
+                    
+                default: // normal
+                    qrContainer.style.cssText = `
+                        background: white;
+                        border-radius: 20px;
+                        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+                        padding: 20px;
+                    `;
+                    
+                    // Supprimer les infos business si présentes
+                    const businessInfo = qrContainer.querySelector('.business-info');
+                    if (businessInfo) businessInfo.remove();
+                    break;
+            }
+        }
+
+        // Initialisation avec amélioration UX et gestion mobile
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventHandlers();
+            updateSizeIndicator(500);
+            updateDownloadButton();
+            
+            // Afficher info et options mobiles si détecté
+            if (isMobile) {
+                const mobileInfo = $('mobile-format-info');
+                const mobileOptions = $('mobile-options');
+                
+                if (mobileInfo) {
+                    mobileInfo.style.display = 'block';
+                }
+                
+                if (mobileOptions) {
+                    mobileOptions.style.display = 'block';
+                }
+                
+                // Sur Android, désactiver visuellement les formats problématiques
+                if (isAndroid) {
+                    $$('#format-options .design-option').forEach(option => {
+                        if (option.dataset.format !== 'png') {
+                            option.style.opacity = '0.6';
+                            option.title = 'Limité sur Android - utilisera le mode "Ouvrir image"';
+                        }
+                    });
+                    
+                    // Message spécial Android
+                    if (mobileInfo) {
+                        mobileInfo.innerHTML = '🤖 Android détecté : Les formats autres que PNG s\'ouvriront dans un nouvel onglet';
+                    }
+                }
+            }
+            
+            $('url-input').focus();
+            
+            // Animation d'entrée pour les sections
+            setTimeout(() => {
+                $$('.section').forEach((section, index) => {
+                    section.style.animation = `slideInUp 0.5s ease forwards ${index * 0.1}s`;
+                });
+            }, 100);
+            
+            // Précharger les logos populaires
+            preloadPopularLogos();
+        });
+        
+        // Préchargement des logos populaires pour performance
+        function preloadPopularLogos() {
+            const popularLogos = ['cat', 'dog', 'star', 'heart', 'rocket', 'phone', 'email'];
+            popularLogos.forEach(logo => {
+                if (CONFIG.logoUrls[logo]) {
+                    const img = new Image();
+                    img.src = CONFIG.logoUrls[logo];
+                }
+            });
+        }
+    </script>
+    
+    <style>
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .section {
+            opacity: 0;
+        }
+    </style>
+</body>
+</html>
